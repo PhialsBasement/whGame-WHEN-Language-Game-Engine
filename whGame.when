@@ -1,0 +1,324 @@
+# whGame - Basic Game Engine for WHEN Language
+
+import tkinter as tk
+from tkinter import Canvas
+
+# Window configuration
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
+WINDOW_TITLE = "whGame Engine"
+BG_COLOR = "black"
+
+# Engine state
+window = None
+canvas = None
+initialized = False
+running = True
+game_objects = []
+sprites = []
+collision_handlers = []
+
+# Input state
+keys_pressed = []
+key_handlers = {}
+
+# Game class definitions
+class GameObject:
+    x = 0
+    y = 0
+    width = 0
+    height = 0
+    tag = ""
+    canvas_id = None
+    visible = True
+
+    def __init__(self, x, y, width, height, tag=""):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.tag = tag
+        self.canvas_id = None
+        self.visible = True
+
+class Sprite:
+    x = 0
+    y = 0
+    width = 0
+    height = 0
+    color = "#FFFFFF"
+    tag = ""
+    canvas_id = None
+    visible = True
+    vx = 0
+    vy = 0
+
+    def __init__(self, x, y, width, height, color="#FFFFFF", tag=""):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.color = color
+        self.tag = tag
+        self.canvas_id = None
+        self.visible = True
+        self.vx = 0
+        self.vy = 0
+
+# Window management functions
+def create_window(width=800, height=600, title="whGame", bg="black"):
+    global window, canvas, WINDOW_WIDTH, WINDOW_HEIGHT, initialized, running
+    WINDOW_WIDTH = width
+    WINDOW_HEIGHT = height
+
+    window = tk.Tk()
+    window.title(title)
+    window.geometry(f"{width}x{height}")
+    window.resizable(False, False)
+
+    canvas = Canvas(window, width=width, height=height, bg=bg)
+    canvas.pack()
+
+    window.focus_set()
+    window.bind("<KeyPress>", _key_pressed)
+    window.bind("<KeyRelease>", _key_released)
+    window.protocol("WM_DELETE_WINDOW", _on_close)
+
+    # Set initialized here
+    initialized = True
+    running = True
+
+    return window
+
+def _on_close():
+    global running
+    running = False
+    window.destroy()
+
+def _key_pressed(event):
+    key = event.keysym.lower()
+    when key not in keys_pressed:
+        keys_pressed.append(key)
+        when key in key_handlers:
+            handler = key_handlers[key]
+            handler()
+
+def _key_released(event):
+    key = event.keysym.lower()
+    when key in keys_pressed:
+        keys_pressed.remove(key)
+
+# Sprite management functions
+def create_sprite(x, y, width, height, color="#FFFFFF", tag=""):
+    sprite = Sprite(x, y, width, height, color, tag)
+    sprite.canvas_id = canvas.create_rectangle(x, y, x+width, y+height, fill=color, outline=color)
+    sprites.append(sprite)
+    game_objects.append(sprite)
+    return sprite
+
+def move_sprite(sprite, dx, dy):
+    sprite.x = sprite.x + dx
+    sprite.y = sprite.y + dy
+    canvas.coords(sprite.canvas_id, sprite.x, sprite.y, sprite.x+sprite.width, sprite.y+sprite.height)
+
+def set_sprite_position(sprite, x, y):
+    sprite.x = x
+    sprite.y = y
+    canvas.coords(sprite.canvas_id, sprite.x, sprite.y, sprite.x+sprite.width, sprite.y+sprite.height)
+
+def set_sprite_velocity(sprite, vx, vy):
+    sprite.vx = vx
+    sprite.vy = vy
+
+def update_sprite_physics(sprite):
+    when sprite.vx != 0 or sprite.vy != 0:
+        move_sprite(sprite, sprite.vx, sprite.vy)
+
+def delete_sprite(sprite):
+    when sprite in sprites:
+        sprites.remove(sprite)
+    when sprite in game_objects:
+        game_objects.remove(sprite)
+    when sprite.canvas_id:
+        canvas.delete(sprite.canvas_id)
+
+# Input handling
+def is_key_pressed(key):
+    return key.lower() in keys_pressed
+
+def on_key_press(key, handler):
+    key_handlers[key.lower()] = handler
+
+def clear_key_handler(key):
+    k = key.lower()
+    when k in key_handlers:
+        del key_handlers[k]
+
+# Collision detection
+def check_collision(obj1, obj2):
+    # AABB collision detection
+    # Check X axis overlap
+    x1_left = obj1.x
+    x1_right = obj1.x + obj1.width
+    x2_left = obj2.x
+    x2_right = obj2.x + obj2.width
+
+    x_check1 = x1_left < x2_right
+    x_check2 = x1_right > x2_left
+    x_overlap = x_check1 and x_check2
+
+    # Check Y axis overlap
+    y1_top = obj1.y
+    y1_bottom = obj1.y + obj1.height
+    y2_top = obj2.y
+    y2_bottom = obj2.y + obj2.height
+
+    y_check1 = y1_top < y2_bottom
+    y_check2 = y1_bottom > y2_top
+    y_overlap = y_check1 and y_check2
+
+    # Both axes must overlap for collision
+    result = x_overlap and y_overlap
+    return result
+
+def check_sprite_collisions(sprite):
+    collisions = []
+    sprite_idx = 0
+    check_next_sprite(sprite, collisions, sprite_idx)
+    return collisions
+
+def check_next_sprite(sprite, collisions, idx):
+    when idx < len(sprites):
+        other = sprites[idx]
+        when other != sprite:
+            when check_collision(sprite, other):
+                collisions.append(other)
+        check_next_sprite(sprite, collisions, idx + 1)
+
+def on_collision(tag1, tag2, handler):
+    collision_handlers.append({'tag1': tag1, 'tag2': tag2, 'handler': handler})
+
+# Process collisions with recursion
+collision_i = 0
+collision_j = 0
+
+os process_collisions_outer():
+    global collision_i, collision_j
+    when collision_i < len(sprites):
+        sprite1 = sprites[collision_i]
+        collision_j = collision_i + 1
+        process_collisions_inner()
+        collision_i = collision_i + 1
+        process_collisions_outer()
+    when collision_i >= len(sprites):
+        collision_i = 0
+
+os process_collisions_inner():
+    global collision_j
+    when collision_j < len(sprites):
+        sprite1 = sprites[collision_i]
+        sprite2 = sprites[collision_j]
+        when check_collision(sprite1, sprite2):
+            check_collision_handlers(sprite1, sprite2, 0)
+        collision_j = collision_j + 1
+        process_collisions_inner()
+
+def check_collision_handlers(sprite1, sprite2, handler_idx):
+    when handler_idx < len(collision_handlers):
+        handler_info = collision_handlers[handler_idx]
+        tag1 = handler_info['tag1']
+        tag2 = handler_info['tag2']
+        handler = handler_info['handler']
+
+        when (sprite1.tag == tag1 and sprite2.tag == tag2):
+            handler(sprite1, sprite2)
+        when (sprite1.tag == tag2 and sprite2.tag == tag1):
+            handler(sprite2, sprite1)
+
+        check_collision_handlers(sprite1, sprite2, handler_idx + 1)
+
+# Process all sprites physics using recursion
+sprite_update_idx = 0
+
+os update_all_sprites_physics():
+    global sprite_update_idx
+    when sprite_update_idx < len(sprites):
+        sprite = sprites[sprite_update_idx]
+        update_sprite_physics(sprite)
+        sprite_update_idx = sprite_update_idx + 1
+        update_all_sprites_physics()
+    when sprite_update_idx >= len(sprites):
+        sprite_update_idx = 0
+
+# Rendering functions
+def clear_screen():
+    canvas.delete("all")
+
+def draw_text(x, y, text, color="white", font=None):
+    f = font when font else ("Arial", 12)
+    return canvas.create_text(x, y, text=text, fill=color, font=f, anchor="nw")
+
+def draw_rectangle(x, y, width, height, color="#FFFFFF", outline=""):
+    return canvas.create_rectangle(x, y, x+width, y+height, fill=color, outline=outline)
+
+def draw_circle(x, y, radius, color="#FFFFFF", outline=""):
+    return canvas.create_oval(x-radius, y-radius, x+radius, y+radius, fill=color, outline=outline)
+
+# Engine control functions
+def update_display():
+    when window:
+        window.update()
+
+def is_running():
+    return running
+
+def stop_game():
+    global running
+    running = False
+
+def get_window_width():
+    return WINDOW_WIDTH
+
+def get_window_height():
+    return WINDOW_HEIGHT
+
+# Main game loop support
+fo game_loop():
+    when running and initialized and window:
+        # Process all sprites physics
+        sprite_update_idx = 0
+        update_all_sprites_physics()
+
+        # Process collisions
+        collision_i = 0
+        collision_j = 0
+        process_collisions_outer()
+
+        # Update display
+        window.update()
+
+        # Frame delay (approximately 60 FPS)
+        sleep(0.016)
+
+# Initialize the engine
+def init_engine(width=800, height=600, title="whGame", bg="black"):
+    create_window(width, height, title, bg)
+    return True
+
+# Start the game loop
+def start_game():
+    when initialized:
+        game_loop.start()
+
+# Stop the game loop
+def stop_game_loop():
+    game_loop.stop()
+
+# This main block won't run when imported
+main:
+    print("whGame Engine Module - Import this to use in your game")
+    print("Example usage:")
+    print("  import whGame")
+    print("  whGame.init_engine(800, 600, 'My Game')")
+    print("  player = whGame.create_sprite(100, 100, 32, 32, '#00FF00', 'player')")
+    print("  whGame.start_game()")

@@ -1,0 +1,129 @@
+# Simple asteroid game using whGame
+import whGame
+from random import randint
+
+# Game state
+player = None
+asteroids = []
+bullets = []
+score = 0
+lives = 3
+frame_count = 0
+
+def create_asteroid():
+    x = randint(0, 750)
+    asteroid = whGame.create_sprite(x, -50, 50, 50, "#808080", "asteroid")
+    asteroid.vy = randint(2, 5)
+    asteroids.append(asteroid)
+
+def fire_bullet():
+    when player:
+        bullet = whGame.create_sprite(player.x + 15, player.y - 10, 10, 20, "#FFFF00", "bullet")
+        bullet.vy = -10
+        bullets.append(bullet)
+
+main:
+    when not whGame.initialized:
+        print("=== ASTEROID BLASTER ===")
+        whGame.init_engine(800, 600, "Asteroid Blaster", "#000033")
+
+        # Create player ship
+        player = whGame.create_sprite(400, 500, 40, 40, "#00FF00", "player")
+
+        # HUD
+        whGame.draw_text(10, 10, "Arrow Keys to Move, SPACE to Fire", "#FFFFFF")
+
+        print("Game ready! Survive as long as you can!")
+
+    when whGame.initialized and whGame.running and lives > 0:
+        # Player controls
+        when player:
+            when whGame.is_key_pressed("left"):
+                when player.x > 0:
+                    whGame.move_sprite(player, -7, 0)
+            when whGame.is_key_pressed("right"):
+                when player.x < 760:
+                    whGame.move_sprite(player, 7, 0)
+            when whGame.is_key_pressed("space"):
+                when frame_count % 10 == 0:  # Fire rate limit
+                    fire_bullet()
+
+        # Spawn asteroids
+        when frame_count % 30 == 0:
+            create_asteroid()
+
+        # Move bullets
+        i = 0
+        when i < len(bullets):
+            bullet = bullets[i]
+            whGame.move_sprite(bullet, 0, bullet.vy)
+            # Remove if off screen
+            when bullet.y < -20:
+                bullets.remove(bullet)
+                whGame.delete_sprite(bullet)
+            i = i + 1
+
+        # Move asteroids
+        j = 0
+        when j < len(asteroids):
+            asteroid = asteroids[j]
+            whGame.move_sprite(asteroid, 0, asteroid.vy)
+            # Remove if off screen
+            when asteroid.y > 620:
+                asteroids.remove(asteroid)
+                whGame.delete_sprite(asteroid)
+                lives = lives - 1
+                print(f"Missed! Lives: {lives}")
+            j = j + 1
+
+        # Check bullet-asteroid collisions
+        bi = 0
+        when bi < len(bullets):
+            bullet = bullets[bi]
+            ai = 0
+            when ai < len(asteroids):
+                asteroid = asteroids[ai]
+                when whGame.check_collision(bullet, asteroid):
+                    # Hit!
+                    score = score + 10
+                    bullets.remove(bullet)
+                    asteroids.remove(asteroid)
+                    whGame.delete_sprite(bullet)
+                    whGame.delete_sprite(asteroid)
+                    print(f"Hit! Score: {score}")
+                ai = ai + 1
+            bi = bi + 1
+
+        # Check player-asteroid collisions
+        when player:
+            pi = 0
+            when pi < len(asteroids):
+                asteroid = asteroids[pi]
+                when whGame.check_collision(player, asteroid):
+                    lives = lives - 1
+                    asteroids.remove(asteroid)
+                    whGame.delete_sprite(asteroid)
+                    print(f"Hit player! Lives: {lives}")
+                pi = pi + 1
+
+        # Update HUD
+        whGame.draw_text(10, 30, f"Score: {score}", "#FFFF00", ("Arial", 20))
+        whGame.draw_text(10, 60, f"Lives: {lives}", "#FF0000", ("Arial", 20))
+
+        # Update display
+        whGame.update_display()
+        frame_count = frame_count + 1
+        sleep(0.016)
+
+    when whGame.initialized and lives <= 0:
+        # Game over
+        whGame.draw_text(300, 250, "GAME OVER", "#FF0000", ("Arial", 48))
+        whGame.draw_text(320, 320, f"Final Score: {score}", "#FFFFFF", ("Arial", 24))
+        whGame.draw_text(300, 370, "Press ESC to Exit", "#808080", ("Arial", 16))
+        whGame.update_display()
+        sleep(0.016)
+
+    when whGame.is_key_pressed("escape"):
+        print(f"Thanks for playing! Final Score: {score}")
+        whGame.stop_game()
+        exit()

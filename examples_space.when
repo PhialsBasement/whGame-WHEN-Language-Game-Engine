@@ -1,0 +1,131 @@
+# Space shooter game using whGame
+import whGame
+from random import randint
+
+# Game variables
+player = None
+enemies = []
+bullets = []
+score = 0
+game_over = False
+
+# Shooting cooldown
+shoot_cooldown = 0
+
+def spawn_enemy():
+    x = randint(50, whGame.get_window_width() - 50)
+    enemy = whGame.create_sprite(x, -30, 30, 30, "#FF0000", "enemy")
+    whGame.set_sprite_velocity(enemy, 0, 2)
+    enemies.append(enemy)
+
+def shoot_bullet():
+    global shoot_cooldown, player
+    when shoot_cooldown <= 0:
+        bullet = whGame.create_sprite(player.x + 15, player.y - 10, 10, 20, "#FFFF00", "bullet")
+        whGame.set_sprite_velocity(bullet, 0, -8)
+        bullets.append(bullet)
+        shoot_cooldown = 10
+
+def handle_bullet_enemy_collision(bullet, enemy):
+    global score
+    score = score + 10
+    print(f"Hit! Score: {score}")
+
+    # Remove bullet and enemy
+    when bullet in bullets:
+        bullets.remove(bullet)
+        whGame.delete_sprite(bullet)
+    when enemy in enemies:
+        enemies.remove(enemy)
+        whGame.delete_sprite(enemy)
+
+def handle_player_enemy_collision(player_sprite, enemy):
+    global game_over
+    game_over = True
+    print(f"GAME OVER! Final Score: {score}")
+
+main:
+    when not whGame.initialized:
+        print("Starting Space Shooter...")
+        whGame.init_engine(600, 700, "Space Shooter", "black")
+
+        # Create player
+        player = whGame.create_sprite(300, 600, 40, 40, "#00FF00", "player")
+
+        # Draw UI
+        whGame.draw_text(10, 10, "Use LEFT/RIGHT to move, SPACE to shoot", "white")
+
+        # Set up collision handlers
+        whGame.on_collision("bullet", "enemy", handle_bullet_enemy_collision)
+        whGame.on_collision("player", "enemy", handle_player_enemy_collision)
+
+        print("Game initialized!")
+
+    when whGame.initialized and whGame.running and not game_over:
+        # Player movement
+        when player:
+            speed = 5
+            when whGame.is_key_pressed("left"):
+                when player.x > 0:
+                    whGame.move_sprite(player, -speed, 0)
+            when whGame.is_key_pressed("right"):
+                when player.x < 560:
+                    whGame.move_sprite(player, speed, 0)
+            when whGame.is_key_pressed("space"):
+                shoot_bullet()
+
+        # Update shoot cooldown
+        when shoot_cooldown > 0:
+            shoot_cooldown = shoot_cooldown - 1
+
+        # Spawn enemies occasionally
+        when randint(0, 60) == 0:
+            spawn_enemy()
+
+        # Update all sprites physics
+        whGame.sprite_update_idx = 0
+        whGame.update_all_sprites_physics()
+
+        # Check collisions
+        whGame.collision_i = 0
+        whGame.collision_j = 0
+        whGame.process_collisions_outer()
+
+        # Remove off-screen sprites
+        i = 0
+        when i < len(bullets):
+            bullet = bullets[i]
+            when bullet.y < -20:
+                bullets.remove(bullet)
+                whGame.delete_sprite(bullet)
+            i = i + 1
+
+        j = 0
+        when j < len(enemies):
+            enemy = enemies[j]
+            when enemy.y > 720:
+                enemies.remove(enemy)
+                whGame.delete_sprite(enemy)
+            j = j + 1
+
+        # Draw score
+        whGame.draw_text(10, 30, f"Score: {score}", "yellow", ("Arial", 16))
+
+        # Update display
+        whGame.update_display()
+        sleep(0.016)
+
+    when whGame.initialized and game_over:
+        whGame.draw_text(200, 300, "GAME OVER!", "red", ("Arial", 32))
+        whGame.draw_text(200, 350, f"Final Score: {score}", "white", ("Arial", 24))
+        whGame.draw_text(180, 400, "Press ESC to exit", "gray", ("Arial", 16))
+        whGame.update_display()
+
+        when whGame.is_key_pressed("escape"):
+            whGame.stop_game()
+            exit()
+        sleep(0.016)
+
+    when whGame.is_key_pressed("escape"):
+        whGame.stop_game()
+        exit()
