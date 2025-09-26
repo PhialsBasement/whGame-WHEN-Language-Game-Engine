@@ -16,7 +16,7 @@ A lightweight game engine written entirely in WHEN language, demonstrating the p
 
 ### Prerequisites
 
-- [WHEN Language](https://github.com/YourUsername/WHEN-Language) interpreter installed
+- [WHEN Language](https://github.com/PhialsBasement/WHEN-Language) interpreter installed
 - Python 3.8+ (for the WHEN interpreter)
 - tkinter (usually comes with Python)
 
@@ -24,7 +24,7 @@ A lightweight game engine written entirely in WHEN language, demonstrating the p
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/YourUsername/whGame-Engine.git
+git clone https://github.com/PhialsBasement/whGame-WHEN-Language-Game-Engine.git
 cd whGame-Engine
 ```
 
@@ -284,5 +284,6 @@ MIT License - feel free to use whGame in your own projects!
 ---
 
 **Made with ❤️ in WHEN Language**
+
 
 *Remember: In WHEN, everything is a condition, even your game loop!*
